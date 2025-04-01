@@ -5,12 +5,12 @@
 
 typedef struct {
     char mqtt_uri[128];
-    char mqtt_username[32];
-    char mqtt_password[32];
+    char mqtt_username[64];
+    char mqtt_password[64];
     char topic_prefix[32];
 } app_config_t;
 
-bool config_init(const char* path);
-const app_config_t* config_get();
+bool config_manager_init(const char *config_path);
+const app_config_t* config_manager_get(void);
 
 #endif // CONFIG_MANAGER_H
