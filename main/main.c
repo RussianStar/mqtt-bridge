@@ -206,8 +206,9 @@ void app_main(void)
     // Create event group for WiFi events
     s_wifi_event_group = xEventGroupCreate();
     
-    // Create default network interface
+    // Create default network interfaces
     netif_sta = esp_netif_create_default_wifi_sta();
+    esp_netif_create_default_wifi_ap();
     
     // Initialize WiFi
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
@@ -217,15 +218,38 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
     
-    // Configure WiFi with hardcoded SSID and password
-    wifi_config_t wifi_config = {0};
-    strncpy((char*)wifi_config.sta.ssid, WIFI_SSID, sizeof(wifi_config.sta.ssid));
-    strncpy((char*)wifi_config.sta.password, WIFI_PASSWORD, sizeof(wifi_config.sta.password));
+    // Set WiFi mode to APSTA (both AP and STA)
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
+    
+    // Configure WiFi AP
+    wifi_config_t ap_config = {
+        .ap = {
+            .ssid = "ESP32_BRIDGE",
+            .ssid_len = strlen("ESP32_BRIDGE"),
+            .channel = 1,
+            .password = "password123",
+            .max_connection = 4,
+            .authmode = WIFI_AUTH_WPA_WPA2_PSK
+        },
+    };
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
+    
+    // Configure WiFi STA with hardcoded SSID and password
+    wifi_config_t sta_config = {0};
+    strncpy((char*)sta_config.sta.ssid, WIFI_SSID, sizeof(sta_config.sta.ssid));
+    strncpy((char*)sta_config.sta.password, WIFI_PASSWORD, sizeof(sta_config.sta.password));
     
     ESP_LOGI(TAG, "Connecting to WiFi SSID: %s", WIFI_SSID);
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &sta_config));
+    
+    // Start WiFi
     ESP_ERROR_CHECK(esp_wifi_start());
+    
+    // Initialize ESPNOW before connecting to WiFi
+    espnow_init(handle_espnow_message);
+    
+    // Connect to WiFi
+    ESP_ERROR_CHECK(esp_wifi_connect());
     
     // Wait for WiFi connection or timeout
     EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
@@ -247,9 +271,6 @@ void app_main(void)
     // Get MAC address
     uint8_t mac[6];
     ESP_ERROR_CHECK(esp_read_mac(mac, ESP_MAC_WIFI_STA));
-    
-    // Initialize ESPNOW only after WiFi is connected
-    espnow_init(handle_espnow_message);
     
     // Initialize MQTT with hardcoded config
     mqtt_client_config_t mqtt_cfg = {

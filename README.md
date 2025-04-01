@@ -9,7 +9,7 @@ This application bridges between MQTT and ESP-NOW protocols for pump control.
 - Supports commands: start, stop, sync, status
 - Automatic status reporting on boot
 - Enhanced MQTT handling based on ESP-IDF examples
-- Proper WiFi connection handling before ESP-NOW initialization
+- Dual WiFi mode (AP+STA) for ESP-NOW compatibility
 
 ## Setup Instructions
 
@@ -36,6 +36,14 @@ This application bridges between MQTT and ESP-NOW protocols for pump control.
    ```bash
    idf.py -p /dev/ttyUSB0 monitor
    ```
+
+## WiFi and ESP-NOW Configuration
+
+The device operates in dual WiFi mode:
+- **Station (STA) mode**: Connects to your WiFi network for MQTT communication
+- **Access Point (AP) mode**: Creates an "ESP32_BRIDGE" network for ESP-NOW compatibility
+
+This dual mode configuration allows ESP-NOW to work properly while maintaining WiFi connectivity.
 
 ## Topic Structure
 - Commands: `{prefix}/{mac}/commands/{command}`
