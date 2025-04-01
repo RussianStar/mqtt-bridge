@@ -9,7 +9,7 @@
 #include "esp_netif.h"
 #include "shared_commands.h"
 #include "espnow_handler.h"
-#include "mqtt_client.h"
+#include "custom_mqtt_client.h"
 #include "config_manager.h"
 #include "cJSON.h"
 #include <inttypes.h>
