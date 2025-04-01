@@ -1,6 +1,7 @@
 #include "mqtt_client.h"
 #include "esp_log.h"
 #include "esp_mac.h"
+#include "esp_event.h"
 #include <string.h>
 
 #define TAG "MQTT"
@@ -11,9 +12,9 @@ static mqtt_command_cb_t command_callback;
 
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, 
                              int32_t event_id, void *event_data) {
-    esp_mqtt_event_handle_t event = event_data;
+    esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)event_data;
     
-    switch(event->event_id) {
+    switch(event_id) {
         case MQTT_EVENT_CONNECTED:
             ESP_LOGI(TAG, "MQTT Connected");
             break;
@@ -61,11 +62,10 @@ esp_err_t mqtt_init(mqtt_command_cb_t command_cb,
     command_callback = command_cb;
     strncpy(topic_prefix, prefix, sizeof(topic_prefix)-1);
     
-    esp_mqtt_client_config_t esp_mqtt_cfg = {
-        .uri = config->uri,
-        .username = config->username,
-        .password = config->password
-    };
+    esp_mqtt_client_config_t esp_mqtt_cfg = {};
+    esp_mqtt_cfg.broker.uri = config->uri;
+    esp_mqtt_cfg.credentials.username = config->username;
+    esp_mqtt_cfg.credentials.password = config->password;
     
     client = esp_mqtt_client_init(&esp_mqtt_cfg);
     if (client == NULL) {
