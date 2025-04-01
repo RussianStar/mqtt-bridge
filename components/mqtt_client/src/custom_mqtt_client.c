@@ -3,12 +3,20 @@
 #include "esp_mac.h"
 #include "esp_event.h"
 #include <string.h>
+#include <inttypes.h>
 
 #define TAG "MQTT"
 
 static esp_mqtt_client_handle_t client;
 static char topic_prefix[64];
 static mqtt_command_cb_t command_callback;
+
+static void log_error_if_nonzero(const char *message, int error_code)
+{
+    if (error_code != 0) {
+        ESP_LOGE(TAG, "Last error %s: 0x%x", message, error_code);
+    }
+}
 
 /**
  * @brief Event handler registered to receive MQTT events
@@ -22,25 +30,43 @@ static mqtt_command_cb_t command_callback;
  */
 static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data)
 {
-    ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%ld", base, event_id);
+    ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%" PRIi32 "", base, event_id);
     esp_mqtt_event_handle_t event = event_data;
+    esp_mqtt_client_handle_t event_client = event->client;
+    int msg_id;
     
     switch ((esp_mqtt_event_id_t)event_id) {
         case MQTT_EVENT_CONNECTED:
-            ESP_LOGI(TAG, "MQTT Connected");
+            ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
             
             // Subscribe to commands topic
             char subscribe_topic[128];
             snprintf(subscribe_topic, sizeof(subscribe_topic), "%s/+/commands/#", topic_prefix);
-            int msg_id = esp_mqtt_client_subscribe(client, subscribe_topic, 1);
-            ESP_LOGI(TAG, "Subscribed to %s, msg_id=%d", subscribe_topic, msg_id);
+            msg_id = esp_mqtt_client_subscribe(event_client, subscribe_topic, 1);
+            ESP_LOGI(TAG, "Sent subscribe successful, msg_id=%d", msg_id);
             break;
             
         case MQTT_EVENT_DISCONNECTED:
-            ESP_LOGI(TAG, "MQTT Disconnected");
+            ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
+            break;
+            
+        case MQTT_EVENT_SUBSCRIBED:
+            ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
+            break;
+            
+        case MQTT_EVENT_UNSUBSCRIBED:
+            ESP_LOGI(TAG, "MQTT_EVENT_UNSUBSCRIBED, msg_id=%d", event->msg_id);
+            break;
+            
+        case MQTT_EVENT_PUBLISHED:
+            ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
             break;
             
         case MQTT_EVENT_DATA:
+            ESP_LOGI(TAG, "MQTT_EVENT_DATA");
+            printf("TOPIC=%.*s\r\n", event->topic_len, event->topic);
+            printf("DATA=%.*s\r\n", event->data_len, event->data);
+            
             if (command_callback) {
                 // Extract topic and data
                 char topic[256];
@@ -77,10 +103,10 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
         case MQTT_EVENT_ERROR:
             ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
             if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
-                ESP_LOGI(TAG, "Last error code reported from esp-tls: 0x%x", event->error_handle->esp_tls_last_esp_err);
-                ESP_LOGI(TAG, "Last tls stack error number: 0x%x", event->error_handle->esp_tls_stack_err);
-                ESP_LOGI(TAG, "Last captured errno : %d (%s)", event->error_handle->esp_transport_sock_errno,
-                         strerror(event->error_handle->esp_transport_sock_errno));
+                log_error_if_nonzero("reported from esp-tls", event->error_handle->esp_tls_last_esp_err);
+                log_error_if_nonzero("reported from tls stack", event->error_handle->esp_tls_stack_err);
+                log_error_if_nonzero("captured as transport's socket errno", event->error_handle->esp_transport_sock_errno);
+                ESP_LOGI(TAG, "Last errno string (%s)", strerror(event->error_handle->esp_transport_sock_errno));
             }
             break;
             
@@ -98,10 +124,11 @@ esp_err_t mqtt_init(mqtt_command_cb_t command_cb,
     topic_prefix[sizeof(topic_prefix)-1] = '\0';
     
     // Configure MQTT client
-    esp_mqtt_client_config_t mqtt_cfg = {0};
-    mqtt_cfg.uri = config->uri;
-    mqtt_cfg.username = config->username;
-    mqtt_cfg.password = config->password;
+    esp_mqtt_client_config_t mqtt_cfg = {
+        .broker.address.uri = config->uri,
+        .credentials.username = config->username,
+        .credentials.authentication.password = config->password,
+    };
     
     // Initialize MQTT client
     client = esp_mqtt_client_init(&mqtt_cfg);

@@ -3,11 +3,16 @@
 #include "esp_log.h"
 #include "esp_wifi.h"
 #include "esp_mac.h"
+#include "esp_system.h"
+#include "nvs_flash.h"
+#include "esp_event.h"
+#include "esp_netif.h"
 #include "shared_commands.h"
 #include "espnow_handler.h"
 #include "mqtt_client.h"
 #include "config_manager.h"
 #include "cJSON.h"
+#include <inttypes.h>
 
 #define TAG "MQTT_ESPNOW_BRIDGE"
 
@@ -132,11 +137,27 @@ static void handle_mqtt_command(const char* mac_str, const char* command, const 
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "Starting MQTT-ESPNOW Bridge");
+    ESP_LOGI(TAG, "[APP] Startup..");
+    ESP_LOGI(TAG, "[APP] Free memory: %" PRIu32 " bytes", esp_get_free_heap_size());
+    ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
     
-    // Initialize WiFi
+    // Set log levels
+    esp_log_level_set("*", ESP_LOG_INFO);
+    esp_log_level_set("mqtt_client", ESP_LOG_VERBOSE);
+    esp_log_level_set("MQTT_ESPNOW_BRIDGE", ESP_LOG_VERBOSE);
+    esp_log_level_set("transport_base", ESP_LOG_VERBOSE);
+    esp_log_level_set("esp-tls", ESP_LOG_VERBOSE);
+    esp_log_level_set("transport", ESP_LOG_VERBOSE);
+    esp_log_level_set("outbox", ESP_LOG_VERBOSE);
+    
+    // Initialize NVS
+    ESP_ERROR_CHECK(nvs_flash_init());
+    
+    // Initialize networking components
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
+    
+    // Initialize WiFi
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
