@@ -55,7 +55,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
     }
 }
 
-void mqtt_init(mqtt_command_cb_t command_cb, 
+esp_err_t mqtt_init(mqtt_command_cb_t command_cb, 
               const mqtt_client_config_t* config,
               const char* prefix) {
     command_callback = command_cb;
@@ -68,8 +68,16 @@ void mqtt_init(mqtt_command_cb_t command_cb,
     };
     
     client = esp_mqtt_client_init(&esp_mqtt_cfg);
-    esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
-    esp_mqtt_client_start(client);
+    if (client == NULL) {
+        return ESP_FAIL;
+    }
+    
+    esp_err_t err = esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
+    if (err != ESP_OK) {
+        return err;
+    }
+    
+    return esp_mqtt_client_start(client);
 }
 
 esp_err_t mqtt_publish_status(const char* mac_str, const char* command, const char* payload) {
