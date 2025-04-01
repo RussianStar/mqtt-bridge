@@ -8,7 +8,7 @@
 
 static app_config_t config;
 
-bool config_init(const char* path) {
+bool config_manager_init(const char* path) {
     if (!path) {
         ESP_LOGE(TAG, "Null config path");
         return false;
@@ -77,6 +77,6 @@ bool config_init(const char* path) {
     return true;
 }
 
-const app_config_t* config_get() {
+const app_config_t* config_manager_get() {
     return &config;
 }
