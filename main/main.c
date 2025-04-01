@@ -8,12 +8,14 @@
 #include "nvs_flash.h"
 #include "esp_event.h"
 #include "esp_netif.h"
+#include "esp_spiffs.h"
 #include "shared_commands.h"
 #include "espnow_handler.h"
 #include "custom_mqtt_client.h"
 #include "config_manager.h"
 #include "cJSON.h"
 #include <inttypes.h>
+#include <string.h>
 
 #define TAG "MQTT_ESPNOW_BRIDGE"
 
@@ -192,8 +194,88 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     
-    // Initialize config first
-    if (!config_manager_init("/spiffs/config.json")) {
+    // Initialize SPIFFS
+    esp_vfs_spiffs_conf_t conf = {
+        .base_path = "/spiffs",
+        .partition_label = NULL,
+        .max_files = 5,
+        .format_if_mount_failed = true
+    };
+    
+    esp_err_t ret = esp_vfs_spiffs_register(&conf);
+    if (ret != ESP_OK) {
+        if (ret == ESP_FAIL) {
+            ESP_LOGE(TAG, "Failed to mount or format SPIFFS");
+        } else if (ret == ESP_ERR_NOT_FOUND) {
+            ESP_LOGE(TAG, "Failed to find SPIFFS partition");
+        } else {
+            ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
+        }
+        return;
+    }
+    
+    // Try to load config from SPIFFS
+    const char* config_path = "/spiffs/config.json";
+    
+    // Check if file exists
+    FILE* f = fopen(config_path, "r");
+    if (!f) {
+        ESP_LOGW(TAG, "Config file not found in SPIFFS, using default config");
+        
+        // Create a default config
+        app_config_t default_config = {
+            .mqtt_uri = "mqtt://192.168.10.34",
+            .mqtt_username = "mqtt2",
+            .mqtt_password = "mqttilman",
+            .topic_prefix = "pump_controller",
+            .wifi_ssid = "Tokamabahe!",
+            .wifi_password = "schneeragout"
+        };
+        
+        // Save the default config to a temporary file
+        char* temp_config_path = "/tmp/default_config.json";
+        
+        // Create a JSON representation of the default config
+        cJSON* root = cJSON_CreateObject();
+        
+        cJSON* mqtt = cJSON_CreateObject();
+        cJSON_AddStringToObject(mqtt, "uri", default_config.mqtt_uri);
+        cJSON_AddStringToObject(mqtt, "username", default_config.mqtt_username);
+        cJSON_AddStringToObject(mqtt, "password", default_config.mqtt_password);
+        cJSON_AddItemToObject(root, "mqtt", mqtt);
+        
+        cJSON* topics = cJSON_CreateObject();
+        cJSON_AddStringToObject(topics, "prefix", default_config.topic_prefix);
+        cJSON_AddItemToObject(root, "topics", topics);
+        
+        cJSON* wifi = cJSON_CreateObject();
+        cJSON_AddStringToObject(wifi, "ssid", default_config.wifi_ssid);
+        cJSON_AddStringToObject(wifi, "password", default_config.wifi_password);
+        cJSON_AddItemToObject(root, "wifi", wifi);
+        
+        char* json_str = cJSON_Print(root);
+        
+        // Write the default config to a file
+        FILE* temp_f = fopen(temp_config_path, "w");
+        if (temp_f) {
+            fputs(json_str, temp_f);
+            fclose(temp_f);
+            config_path = temp_config_path;
+        } else {
+            ESP_LOGE(TAG, "Failed to create temporary config file");
+            free(json_str);
+            cJSON_Delete(root);
+            return;
+        }
+        
+        free(json_str);
+        cJSON_Delete(root);
+    } else {
+        fclose(f);
+    }
+    
+    // Initialize config
+    if (!config_manager_init(config_path)) {
         ESP_LOGE(TAG, "Failed to load configuration");
         return;
     }
