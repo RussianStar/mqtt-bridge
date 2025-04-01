@@ -2,8 +2,8 @@
 #define MQTT_CLIENT_H
 
 #include "esp_err.h"
-#include "mqtt_client.h"
 #include "shared_commands.h"
+#include "mqtt_client.h" // ESP-IDF MQTT client header
 
 // Custom MQTT client configuration type
 typedef struct {
