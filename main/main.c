@@ -157,7 +157,7 @@ void app_main(void)
 
     // Initialize MQTT with config
     const app_config_t* config = config_manager_get();
-    esp_mqtt_client_config_t mqtt_cfg = {
+    mqtt_client_config_t mqtt_cfg = {
         .uri = config->mqtt_uri,
         .username = config->mqtt_username,
         .password = config->mqtt_password

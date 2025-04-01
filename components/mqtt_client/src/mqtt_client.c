@@ -56,12 +56,18 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
 }
 
 void mqtt_init(mqtt_command_cb_t command_cb, 
-              const esp_mqtt_client_config_t* config,
+              const mqtt_client_config_t* config,
               const char* prefix) {
     command_callback = command_cb;
     strncpy(topic_prefix, prefix, sizeof(topic_prefix)-1);
     
-    client = esp_mqtt_client_init(config);
+    esp_mqtt_client_config_t esp_mqtt_cfg = {
+        .uri = config->uri,
+        .username = config->username,
+        .password = config->password
+    };
+    
+    client = esp_mqtt_client_init(&esp_mqtt_cfg);
     esp_mqtt_client_register_event(client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
     esp_mqtt_client_start(client);
 }
