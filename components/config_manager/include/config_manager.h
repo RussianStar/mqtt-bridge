@@ -9,6 +9,8 @@ typedef struct {
     char mqtt_username[64];
     char mqtt_password[64];
     char topic_prefix[32];
+    char wifi_ssid[32];
+    char wifi_password[64];
 } app_config_t;
 
 bool config_manager_init(const char *config_path);

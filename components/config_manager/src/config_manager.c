@@ -72,6 +72,15 @@ bool config_manager_init(const char* path) {
         cJSON* prefix = cJSON_GetObjectItem(topics, "prefix");
         if (prefix) strncpy(config.topic_prefix, prefix->valuestring, sizeof(config.topic_prefix));
     }
+    
+    cJSON* wifi = cJSON_GetObjectItem(root, "wifi");
+    if (wifi) {
+        cJSON* ssid = cJSON_GetObjectItem(wifi, "ssid");
+        cJSON* pass = cJSON_GetObjectItem(wifi, "password");
+        
+        if (ssid) strncpy(config.wifi_ssid, ssid->valuestring, sizeof(config.wifi_ssid));
+        if (pass) strncpy(config.wifi_password, pass->valuestring, sizeof(config.wifi_password));
+    }
 
     cJSON_Delete(root);
     return true;
