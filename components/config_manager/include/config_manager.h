@@ -1,6 +1,7 @@
 #ifndef CONFIG_MANAGER_H
 #define CONFIG_MANAGER_H
 
+#include <string.h>
 #include <stdbool.h>
 
 typedef struct {
