@@ -8,52 +8,31 @@ This application bridges between MQTT and ESP-NOW protocols for pump control.
 - Publishes status updates from ESP-NOW to MQTT
 - Supports commands: start, stop, sync, status
 - Automatic status reporting on boot
-- WiFi and MQTT configuration via config file
-- SPIFFS storage for configuration
+- Enhanced MQTT handling based on ESP-IDF examples
+- Proper WiFi connection handling before ESP-NOW initialization
 
 ## Setup Instructions
 
-1. Edit `config/config.json` with your MQTT broker and WiFi details:
-   ```json
-   {
-       "mqtt": {
-           "uri": "mqtt://your.broker.com",
-           "username": "your_username",
-           "password": "your_password"
-       },
-       "topics": {
-           "prefix": "pump_controller"
-       },
-       "wifi": {
-           "ssid": "your_wifi_ssid",
-           "password": "your_wifi_password"
-       }
-   }
+1. Edit the WiFi and MQTT configuration in `main/main.c`:
+   ```c
+   // WiFi credentials - replace with your own
+   #define WIFI_SSID "your_wifi_ssid"
+   #define WIFI_PASSWORD "your_wifi_password"
+
+   // MQTT configuration
+   #define MQTT_URI "mqtt://192.168.10.34"
+   #define MQTT_USERNAME "mqtt2"
+   #define MQTT_PASSWORD "mqttilman"
+   #define MQTT_TOPIC_PREFIX "pump_controller"
    ```
 
-2. Create a SPIFFS image with your configuration:
-   - On Linux/macOS:
-     ```bash
-     chmod +x create_spiffs_image.sh
-     ./create_spiffs_image.sh
-     ```
-   - On Windows:
-     ```
-     create_spiffs_image.bat
-     ```
-
-3. Build and flash the firmware:
+2. Build and flash the firmware:
    ```bash
    idf.py build
    idf.py -p /dev/ttyUSB0 flash
    ```
 
-4. Flash the SPIFFS partition with your configuration:
-   ```bash
-   esptool.py --port /dev/ttyUSB0 write_flash 0x310000 spiffs.bin
-   ```
-
-5. Monitor the device:
+3. Monitor the device:
    ```bash
    idf.py -p /dev/ttyUSB0 monitor
    ```
@@ -67,9 +46,8 @@ See `components/shared_commands/include/shared_commands.h` for message formats
 
 ## Troubleshooting
 
-If you encounter issues with the configuration:
+If you encounter issues with the connection:
 
-1. Check that the SPIFFS partition is correctly flashed
-2. Verify your WiFi credentials in the config.json file
-3. Ensure the MQTT broker is accessible from your network
-4. Check the device logs for specific error messages
+1. Verify your WiFi credentials in the main.c file
+2. Ensure the MQTT broker is accessible from your network
+3. Check the device logs for specific error messages

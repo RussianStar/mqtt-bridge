@@ -8,7 +8,6 @@
 #include "nvs_flash.h"
 #include "esp_event.h"
 #include "esp_netif.h"
-#include "esp_spiffs.h"
 #include "shared_commands.h"
 #include "espnow_handler.h"
 #include "custom_mqtt_client.h"
@@ -16,6 +15,16 @@
 #include "cJSON.h"
 #include <inttypes.h>
 #include <string.h>
+
+// WiFi credentials - replace with your own
+#define WIFI_SSID "Tokamabahe!"
+#define WIFI_PASSWORD "schneeragout"
+
+// MQTT configuration
+#define MQTT_URI "mqtt://192.168.10.34"
+#define MQTT_USERNAME "mqtt2"
+#define MQTT_PASSWORD "mqttilman"
+#define MQTT_TOPIC_PREFIX "pump_controller"
 
 #define TAG "MQTT_ESPNOW_BRIDGE"
 
@@ -194,94 +203,6 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     
-    // Initialize SPIFFS
-    esp_vfs_spiffs_conf_t conf = {
-        .base_path = "/spiffs",
-        .partition_label = NULL,
-        .max_files = 5,
-        .format_if_mount_failed = true
-    };
-    
-    esp_err_t ret = esp_vfs_spiffs_register(&conf);
-    if (ret != ESP_OK) {
-        if (ret == ESP_FAIL) {
-            ESP_LOGE(TAG, "Failed to mount or format SPIFFS");
-        } else if (ret == ESP_ERR_NOT_FOUND) {
-            ESP_LOGE(TAG, "Failed to find SPIFFS partition");
-        } else {
-            ESP_LOGE(TAG, "Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
-        }
-        return;
-    }
-    
-    // Try to load config from SPIFFS
-    const char* config_path = "/spiffs/config.json";
-    
-    // Check if file exists
-    FILE* f = fopen(config_path, "r");
-    if (!f) {
-        ESP_LOGW(TAG, "Config file not found in SPIFFS, using default config");
-        
-        // Create a default config
-        app_config_t default_config = {
-            .mqtt_uri = "mqtt://192.168.10.34",
-            .mqtt_username = "mqtt2",
-            .mqtt_password = "mqttilman",
-            .topic_prefix = "pump_controller",
-            .wifi_ssid = "Tokamabahe!",
-            .wifi_password = "schneeragout"
-        };
-        
-        // Save the default config to a temporary file
-        char* temp_config_path = "/tmp/default_config.json";
-        
-        // Create a JSON representation of the default config
-        cJSON* root = cJSON_CreateObject();
-        
-        cJSON* mqtt = cJSON_CreateObject();
-        cJSON_AddStringToObject(mqtt, "uri", default_config.mqtt_uri);
-        cJSON_AddStringToObject(mqtt, "username", default_config.mqtt_username);
-        cJSON_AddStringToObject(mqtt, "password", default_config.mqtt_password);
-        cJSON_AddItemToObject(root, "mqtt", mqtt);
-        
-        cJSON* topics = cJSON_CreateObject();
-        cJSON_AddStringToObject(topics, "prefix", default_config.topic_prefix);
-        cJSON_AddItemToObject(root, "topics", topics);
-        
-        cJSON* wifi = cJSON_CreateObject();
-        cJSON_AddStringToObject(wifi, "ssid", default_config.wifi_ssid);
-        cJSON_AddStringToObject(wifi, "password", default_config.wifi_password);
-        cJSON_AddItemToObject(root, "wifi", wifi);
-        
-        char* json_str = cJSON_Print(root);
-        
-        // Write the default config to a file
-        FILE* temp_f = fopen(temp_config_path, "w");
-        if (temp_f) {
-            fputs(json_str, temp_f);
-            fclose(temp_f);
-            config_path = temp_config_path;
-        } else {
-            ESP_LOGE(TAG, "Failed to create temporary config file");
-            free(json_str);
-            cJSON_Delete(root);
-            return;
-        }
-        
-        free(json_str);
-        cJSON_Delete(root);
-    } else {
-        fclose(f);
-    }
-    
-    // Initialize config
-    if (!config_manager_init(config_path)) {
-        ESP_LOGE(TAG, "Failed to load configuration");
-        return;
-    }
-    
-    const app_config_t* config = config_manager_get();
-    
     // Create event group for WiFi events
     s_wifi_event_group = xEventGroupCreate();
     
@@ -296,12 +217,12 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
     
-    // Configure WiFi with SSID and password from config
+    // Configure WiFi with hardcoded SSID and password
     wifi_config_t wifi_config = {0};
-    strncpy((char*)wifi_config.sta.ssid, config->wifi_ssid, sizeof(wifi_config.sta.ssid));
-    strncpy((char*)wifi_config.sta.password, config->wifi_password, sizeof(wifi_config.sta.password));
+    strncpy((char*)wifi_config.sta.ssid, WIFI_SSID, sizeof(wifi_config.sta.ssid));
+    strncpy((char*)wifi_config.sta.password, WIFI_PASSWORD, sizeof(wifi_config.sta.password));
     
-    ESP_LOGI(TAG, "Connecting to WiFi SSID: %s", config->wifi_ssid);
+    ESP_LOGI(TAG, "Connecting to WiFi SSID: %s", WIFI_SSID);
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
@@ -314,9 +235,9 @@ void app_main(void)
                                            pdMS_TO_TICKS(10000));
     
     if (bits & WIFI_CONNECTED_BIT) {
-        ESP_LOGI(TAG, "Connected to WiFi SSID: %s", config->wifi_ssid);
+        ESP_LOGI(TAG, "Connected to WiFi SSID: %s", WIFI_SSID);
     } else if (bits & WIFI_FAIL_BIT) {
-        ESP_LOGE(TAG, "Failed to connect to WiFi SSID: %s", config->wifi_ssid);
+        ESP_LOGE(TAG, "Failed to connect to WiFi SSID: %s", WIFI_SSID);
         return;
     } else {
         ESP_LOGE(TAG, "WiFi connection timeout");
@@ -330,13 +251,13 @@ void app_main(void)
     // Initialize ESPNOW only after WiFi is connected
     espnow_init(handle_espnow_message);
     
-    // Initialize MQTT with config
+    // Initialize MQTT with hardcoded config
     mqtt_client_config_t mqtt_cfg = {
-        .uri = config->mqtt_uri,
-        .username = config->mqtt_username,
-        .password = config->mqtt_password
+        .uri = MQTT_URI,
+        .username = MQTT_USERNAME,
+        .password = MQTT_PASSWORD
     };
-    ESP_ERROR_CHECK(mqtt_init(handle_mqtt_command, &mqtt_cfg, config->topic_prefix));
+    ESP_ERROR_CHECK(mqtt_init(handle_mqtt_command, &mqtt_cfg, MQTT_TOPIC_PREFIX));
     
     // Publish MAC address
     mqtt_publish_mac_address(mac);
