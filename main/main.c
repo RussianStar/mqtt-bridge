@@ -80,7 +80,8 @@ static void handle_espnow_message(const uint8_t *mac_addr, const command_packet_
         ESP_LOGE(TAG, "Received NULL command in ESPNOW message from %s", mac_str);
         return;
     }
-             
+    
+    // Now it's safe to access cmd->command since we've checked cmd is not NULL
     ESP_LOGI(TAG, "Received ESPNOW message from %s: %s", 
             mac_str, command_to_str(cmd->command));
             
