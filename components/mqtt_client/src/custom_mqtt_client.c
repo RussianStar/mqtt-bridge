@@ -1,4 +1,4 @@
-#include "mqtt_client.h"
+#include "custom_mqtt_client.h"
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "esp_event.h"
@@ -117,18 +117,17 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 }
 
 esp_err_t mqtt_init(mqtt_command_cb_t command_cb, 
-              const esp_mqtt_client_config_t* config,
+              const mqtt_client_config_t* config,
               const char* prefix) {
     command_callback = command_cb;
     strncpy(topic_prefix, prefix, sizeof(topic_prefix)-1);
     topic_prefix[sizeof(topic_prefix)-1] = '\0';
     
     // Configure MQTT client
-    esp_mqtt_client_config_t mqtt_cfg = {
-        .broker.address.uri = config->uri,
-        .credentials.username = config->username,
-        .credentials.authentication.password = config->password,
-    };
+    esp_mqtt_client_config_t mqtt_cfg = {0};
+    mqtt_cfg.broker.address.uri = config->uri;
+    mqtt_cfg.credentials.username = config->username;
+    mqtt_cfg.credentials.authentication.password = config->password;
     
     // Initialize MQTT client
     client = esp_mqtt_client_init(&mqtt_cfg);
