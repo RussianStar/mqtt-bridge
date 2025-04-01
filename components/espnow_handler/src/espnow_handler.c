@@ -9,10 +9,10 @@
 
 static espnow_receive_cb_t receive_callback = NULL;
 
-static void espnow_recv_cb(const uint8_t *mac_addr, const uint8_t *data, int len) {
+static void espnow_recv_cb(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
     if (receive_callback) {
         command_packet_t* cmd = (command_packet_t*)data;
-        receive_callback(mac_addr, cmd);
+        receive_callback(info->src_addr, cmd);
     }
 }
 
