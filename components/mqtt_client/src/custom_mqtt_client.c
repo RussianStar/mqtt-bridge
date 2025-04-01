@@ -117,7 +117,7 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
 }
 
 esp_err_t mqtt_init(mqtt_command_cb_t command_cb, 
-              const mqtt_client_config_t* config,
+              const esp_mqtt_client_config_t* config,
               const char* prefix) {
     command_callback = command_cb;
     strncpy(topic_prefix, prefix, sizeof(topic_prefix)-1);
