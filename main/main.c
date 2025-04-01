@@ -63,10 +63,23 @@ static void event_handler(void* arg, esp_event_base_t event_base,
 }
 
 static void handle_espnow_message(const uint8_t *mac_addr, const command_packet_t *cmd) {
-    char mac_str[18];
-    snprintf(mac_str, sizeof(mac_str), "%02x:%02x:%02x:%02x:%02x:%02x",
-             mac_addr[0], mac_addr[1], mac_addr[2],
-             mac_addr[3], mac_addr[4], mac_addr[5]);
+    char mac_str[18] = {0};
+    
+    // Check for NULL MAC address
+    if (mac_addr == NULL) {
+        ESP_LOGE(TAG, "Received NULL MAC address in ESPNOW message");
+        strcpy(mac_str, "unknown");
+    } else {
+        snprintf(mac_str, sizeof(mac_str), "%02x:%02x:%02x:%02x:%02x:%02x",
+                mac_addr[0], mac_addr[1], mac_addr[2],
+                mac_addr[3], mac_addr[4], mac_addr[5]);
+    }
+    
+    // Check for NULL command
+    if (cmd == NULL) {
+        ESP_LOGE(TAG, "Received NULL command in ESPNOW message from %s", mac_str);
+        return;
+    }
              
     ESP_LOGI(TAG, "Received ESPNOW message from %s: %s", 
             mac_str, command_to_str(cmd->command));
@@ -245,7 +258,10 @@ void app_main(void)
     // Start WiFi
     ESP_ERROR_CHECK(esp_wifi_start());
     
-    // Initialize ESPNOW before connecting to WiFi
+    // Wait a moment for WiFi to initialize
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+    
+    // Initialize ESPNOW after WiFi is started but before connecting
     espnow_init(handle_espnow_message);
     
     // Connect to WiFi
